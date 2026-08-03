@@ -280,7 +280,7 @@ async def check_order_status(update: Update, context: ContextTypes.DEFAULT_TYPE)
 
 def main():
     # Telegram Bot Token ပြင်ဆင်ပြီး
-    app = Application.builder().token("8912157146:AAGBD4IVht73iJS5quj5YpPNH-").build()  # သင့် Bot Token ထည့်ပါ
+    app = Application.builder().token("8912157146:AAGBD4IVht73iJS5quj5YpPNH-PHISfFQpQ").build()  # သင့် Bot Token ထည့်ပါ
 
     order_conv = ConversationHandler(
         entry_points=[MessageHandler(filters.Regex('^🛒 Bot မှာယူရန်$'), start_order)],
