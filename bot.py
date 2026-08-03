@@ -15,7 +15,7 @@ def run_server():
 
 threading.Thread(target=run_server, daemon=True).start()
 # --- Telegram Bot Code ---
-Import logging
+import logging
 import sqlite3
 from datetime import datetime
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, ReplyKeyboardMarkup
@@ -26,7 +26,7 @@ from telegram.ext import (
 
 # ---------------------------------------------------------
 # Admin Chat ID နှင့် Developer Username ပြင်ဆင်ပြီး
-ADMIN_CHAT_ID = "YOUR_ADMIN_CHAT_ID"  # သင့် Chat ID ဂဏန်း (ဥပမာ- "123456789")
+ADMIN_CHAT_ID = "8582190375"  
 DEVELOPER_USERNAME = "superraizo7"
 # ---------------------------------------------------------
 
@@ -280,13 +280,13 @@ async def check_order_status(update: Update, context: ContextTypes.DEFAULT_TYPE)
 
 def main():
     # Telegram Bot Token ပြင်ဆင်ပြီး
-    app = Application.builder().token("YOUR_TELEGRAM_BOT_TOKEN").build()  # သင့် Bot Token ထည့်ပါ
+    app = Application.builder().token("8912157146:AAGBD4IVht73iJS5quj5YpPNH-").build()  # သင့် Bot Token ထည့်ပါ
 
     order_conv = ConversationHandler(
         entry_points=[MessageHandler(filters.Regex('^🛒 Bot မှာယူရန်$'), start_order)],
         states={
             BOT_TYPE: [MessageHandler(filters.TEXT & ~filters.COMMAND, set_bot_type)],
-            DESCRIPTION: [MessageHandler(filters.TEXT & ~filters.COMMAND, set_description)],
+            DESCRIPTION: [MessageHandler(filtPHISfFQpQers.TEXT & ~filters.COMMAND, set_description)],
             FEATURES: [MessageHandler(filters.TEXT & ~filters.COMMAND, set_features)],
             CUSTOMER_INFO: [MessageHandler(filters.TEXT & ~filters.COMMAND, set_customer_info)],
             BUDGET: [MessageHandler(filters.TEXT & ~filters.COMMAND, set_budget)]
