@@ -553,18 +553,22 @@ async def show_reviews(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     await update.message.reply_text(review_text, reply_markup=ReplyKeyboardMarkup(keyboard, resize_keyboard=True), parse_mode="Markdown")
 
-async def save_review_3(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await save_review_action(update, "⭐⭐⭐")
-
-async def save_review_4(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await save_review_action(update, "⭐⭐⭐⭐")
-
-async def save_review_5(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await save_review_action(update, "⭐⭐⭐⭐⭐")
-
-async def save_review_action(update: Update, rating: str):
+async def handle_review_input(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not await check_rate_limit(update, context):
         return
+    text = update.message.text
+    star_count = text.count("⭐")
+    
+    if star_count == 3:
+        await save_review_action(update, "⭐⭐⭐")
+    elif star_count == 4:
+        await save_review_action(update, "⭐⭐⭐⭐")
+    elif star_count >= 5:
+        await save_review_action(update, "⭐⭐⭐⭐⭐")
+    else:
+        return
+
+async def save_review_action(update: Update, rating: str):
     user = update.message.from_user
     
     async with aiosqlite.connect(DB_NAME) as conn:
@@ -1261,9 +1265,7 @@ def main():
     # FAQ & Reviews
     app.add_handler(MessageHandler(filters.Regex("^❓ FAQ$"), show_faq))
     app.add_handler(MessageHandler(filters.Regex("^⭐ Customer Review$"), show_reviews))
-    app.add_handler(MessageHandler(filters.Regex("^⭐⭐⭐$"), save_review_3))
-    app.add_handler(MessageHandler(filters.Regex("^⭐⭐⭐⭐$"), save_review_4))
-    app.add_handler(MessageHandler(filters.Regex("^⭐⭐⭐⭐⭐$"), save_review_5))
+    app.add_handler(MessageHandler(filters.Regex("⭐"), handle_review_input))
 
     # Navigation
     app.add_handler(MessageHandler(filters.Regex("^🏠 ပင်မမီနူးသို့ ပြန်ရန်$"), back_to_main))
