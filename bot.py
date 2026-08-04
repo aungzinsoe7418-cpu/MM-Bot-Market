@@ -424,7 +424,7 @@ async def show_reviews(update: Update, context: ContextTypes.DEFAULT_TYPE):
         review_text += "✨ ယခုထိ Review ပေးထားသူ မရှိသေးပါ။ Order တင်ပြီး Review ပေးနိုင်ပါတယ်။"
 
     keyboard = [
-        ["⭐⭐⭐", "⭐⭐⭐", "⭐⭐⭐⭐⭐"],
+        ["⭐⭐⭐", "⭐⭐⭐⭐", "⭐⭐⭐⭐⭐"],
         ["🛒 Bot မှာယူရန်", "🔙 နောက်ပြန်ဆုပ်ရန်"]
     ]
     await update.message.reply_text(review_text, reply_markup=ReplyKeyboardMarkup(keyboard, resize_keyboard=True), parse_mode="Markdown")
@@ -473,7 +473,33 @@ async def start_order(update: Update, context: ContextTypes.DEFAULT_TYPE):
     return PACKAGE_TYPE
 
 async def set_package_type(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    context.user_data["order"]["package"] = update.message.text
+    text = update.message.text.strip()
+
+    # Repeat click validation
+    if "Bot မှာယူရန်" in text:
+        keyboard = [
+            ["🤖 Starter Package", "🤖 Standard Package"],
+            ["🤖 Premium Package (Customize Bot)"],
+            ["❌ Order ပယ်ဖျက်ရန်"]
+        ]
+        await update.message.reply_text(
+            "⚠️ ကျေးဇူးပြု၍ အောက်ပါ Package များထဲမှ တစ်ခုကို ရွေးချယ်ပေးပါခင်ဗျာ 👇",
+            reply_markup=ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
+        )
+        return PACKAGE_TYPE
+
+    # Package Name Standardizing
+    if "Starter" in text:
+        package_name = "Starter Package"
+    elif "Standard" in text:
+        package_name = "Standard Package"
+    elif "Premium" in text:
+        package_name = "Premium Package"
+    else:
+        package_name = text
+
+    context.user_data["order"]["package"] = package_name
+
     keyboard = [
         ["🛒 Shop Bot", "🎮 Game Top-up Bot"],
         ["🤖 AI Chat Bot", "📢 Channel Bot"],
@@ -481,43 +507,105 @@ async def set_package_type(update: Update, context: ContextTypes.DEFAULT_TYPE):
         ["❌ Order ပယ်ဖျက်ရန်"]
     ]
     await update.message.reply_text(
-        "🤖 ဆက်လက်၍ Bot အမျိုးအစားကို ရွေးချယ်ပါ 👇",
-        reply_markup=ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
+        f"✅ **Package:** {package_name}\n\n"
+        "🤖 ဆက်လက်၍ မည်သည့် Bot အမျိုးအစား (Bot Type) ရေးဆွဲလိုသလဲ ရွေးချယ်ပေးပါခင်ဗျာ 👇",
+        reply_markup=ReplyKeyboardMarkup(keyboard, resize_keyboard=True),
+        parse_mode="Markdown"
     )
     return BOT_TYPE
 
 async def set_bot_type(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    context.user_data["order"]["bot_type"] = update.message.text
+    text = update.message.text.strip()
+
+    # Repeat click validation
+    if "Bot မှာယူရန်" in text:
+        keyboard = [
+            ["🛒 Shop Bot", "🎮 Game Top-up Bot"],
+            ["🤖 AI Chat Bot", "📢 Channel Bot"],
+            ["🏢 Business Bot", "✍️ Custom Bot"],
+            ["❌ Order ပယ်ဖျက်ရန်"]
+        ]
+        await update.message.reply_text(
+            "⚠️ ကျေးဇူးပြု၍ အောက်ပါ Bot အမျိုးအစားများထဲမှ တစ်ခုကို ရွေးချယ်ပေးပါခင်ဗျာ 👇",
+            reply_markup=ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
+        )
+        return BOT_TYPE
+
+    context.user_data["order"]["bot_type"] = text
+
     keyboard = [["❌ Order ပယ်ဖျက်ရန်"]]
     await update.message.reply_text(
-        "📝 သင်လိုချင်သော Bot Idea နှင့် လိုအပ်သော Function များကို ရေးပေးပါ။",
-        reply_markup=ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
+        f"✅ **Bot Type:** {text}\n\n"
+        "📝 သင်လိုချင်သော Bot Idea နှင့် အချက်အလက်များကို ရေးသားပေးပါ။ (ဥပမာ - Game ID လက်ခံပြီး Screenshot အော်ဒါယူပေးသော Bot)",
+        reply_markup=ReplyKeyboardMarkup(keyboard, resize_keyboard=True),
+        parse_mode="Markdown"
     )
     return DESCRIPTION
 
 async def set_description(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data["order"]["description"] = update.message.text
+    context.user_data["order"]["selected_features"] = []
+
     keyboard = [
-        ["✅ Auto Reply", "✅ Payment System"],
-        ["✅ Database", "✅ Admin Panel"],
-        ["✅ User Management", "✅ AI Function"],
-        ["❌ Order ပယ်ဖျက်ရန်"]
+        ["Auto Reply", "Payment System"],
+        ["Database", "Admin Panel"],
+        ["User Management", "AI Function"],
+        ["➡️ ပြီးပါပြီ (Next)", "❌ Order ပယ်ဖျက်ရန်"]
     ]
     await update.message.reply_text(
-        "⚙️ လိုအပ်သော Function ကို ရွေးပါ သို့မဟုတ် စာဖြင့်ရေးပို့ပါ",
-        reply_markup=ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
+        "⚙️ **လိုအပ်သော Function များကို ရွေးချယ်ပါ (တစ်ခုထက်ပို၍ ရွေးချယ်နိုင်ပါသည်):**\n\n"
+        "လိုချင်သော Function များကို ခလုတ်များ နှိပ်၍ သို့မဟုတ် စာဖြင့် ရိုက်ပို့ပါ။\n"
+        "ရွေးချယ်မှု ပြီးစီးပါက **'➡️ ပြီးပါပြီ (Next)'** ကို နှိပ်ပါခင်ဗျာ။",
+        reply_markup=ReplyKeyboardMarkup(keyboard, resize_keyboard=True),
+        parse_mode="Markdown"
     )
     return FEATURES
 
 async def set_features(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    context.user_data["order"]["features"] = update.message.text
-    keyboard = [["❌ Order ပယ်ဖျက်ရန်"]]
+    text = update.message.text.strip()
+    selected = context.user_data["order"].get("selected_features", [])
+
+    if text == "➡️ ပြီးပါပြီ (Next)":
+        if not selected:
+            await update.message.reply_text("⚠️ ကျေးဇူးပြု၍ အနည်းဆုံး Function တစ်ခု ရွေးချယ်ပါ သို့မဟုတ် စာဖြင့် ရိုက်ပို့ပေးပါ။")
+            return FEATURES
+        
+        context.user_data["order"]["features"] = ", ".join(selected)
+        
+        keyboard = [["❌ Order ပယ်ဖျက်ရန်"]]
+        await update.message.reply_text(
+            "👤 သင့်အမည်၊ Phone Number နှင့် Business Type ကို ရေးပေးပါ။\n\n"
+            "ဥပမာ - Aung, 09123456789, Online Shop",
+            reply_markup=ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
+        )
+        return CUSTOMER_INFO
+
+    clean_text = text.replace("✅", "").strip()
+    if clean_text in selected:
+        selected.remove(clean_text)
+        msg_status = f"❌ '{clean_text}' ကို ပြန်ဖြုတ်လိုက်ပါသည်။"
+    else:
+        selected.append(clean_text)
+        msg_status = f"✅ '{clean_text}' ကို ထည့်သွင်းလိုက်ပါပြီ။"
+
+    context.user_data["order"]["selected_features"] = selected
+    current_list_str = "\n".join([f"• {item}" for item in selected]) if selected else "မရှိသေးပါ"
+
+    keyboard = [
+        ["Auto Reply", "Payment System"],
+        ["Database", "Admin Panel"],
+        ["User Management", "AI Function"],
+        ["➡️ ပြီးပါပြီ (Next)", "❌ Order ပယ်ဖျက်ရန်"]
+    ]
+
     await update.message.reply_text(
-        "👤 သင့်အမည်၊ Phone Number နှင့် Business Type ကို ရေးပေးပါ။\n\n"
-        "ဥပမာ - Aung, 09123456789, Online Shop",
-        reply_markup=ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
+        f"{msg_status}\n\n"
+        f"📌 **လက်ရှိ ရွေးချယ်ထားသော Function များ:**\n{current_list_str}\n\n"
+        f"ထပ်မံ ရွေးချယ်ပါ သို့မဟုတ် ပြီးပါက **'➡️ ပြီးပါပြီ (Next)'** ကို နှိပ်ပါခင်ဗျာ။",
+        reply_markup=ReplyKeyboardMarkup(keyboard, resize_keyboard=True),
+        parse_mode="Markdown"
     )
-    return CUSTOMER_INFO
+    return FEATURES
 
 async def set_customer_info(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data["order"]["customer_info"] = update.message.text
@@ -564,8 +652,8 @@ async def set_budget(update: Update, context: ContextTypes.DEFAULT_TYPE):
     summary = (
         "✅ **Order တင်ခြင်း အောင်မြင်ပါပြီ**\n\n"
         f"📌 Order ID: `{order_id}`\n"
-        f"📦 Package: {order_data['package']}\n"
-        f"🤖 Bot Type: {order_data['bot_type']}\n"
+        f"📦 Package: {order_data.get('package', 'Starter Package')}\n"
+        f"🤖 Bot Type: {order_data.get('bot_type', 'N/A')}\n"
         f"📝 Description: {order_data['description']}\n"
         f"⚙️ Features: {order_data['features']}\n"
         f"💰 Budget: {order_data['budget']}\n\n"
@@ -586,8 +674,8 @@ async def set_budget(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"👤 Customer: {user.first_name}\n"
         f"📱 Username: {username}\n"
         f"🆔 User ID: `{user.id}`\n\n"
-        f"📦 Package: {order_data['package']}\n"
-        f"🤖 Bot: {order_data['bot_type']}\n"
+        f"📦 Package: {order_data.get('package', 'Starter Package')}\n"
+        f"🤖 Bot Type: {order_data.get('bot_type', 'N/A')}\n"
         f"📝 Idea: {order_data['description']}\n"
         f"⚙️ Feature: {order_data['features']}\n"
         f"💰 Budget: {order_data['budget']}\n\n"
