@@ -5,6 +5,7 @@ import logging
 import sqlite3
 import threading
 import traceback
+import asyncio
 
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from datetime import datetime
@@ -75,11 +76,10 @@ BOT_TOKEN = os.environ.get("BOT_TOKEN")
 # ==========================================================
 
 PACKAGE_TYPE, BOT_TYPE, DESCRIPTION, FEATURES, CUSTOMER_INFO, BUDGET = range(6)
-ORDER_SEARCH = 6
 
 
 # ==========================================================
-# DATABASE
+# DATABASE (WITH WAL MODE FOR HIGH PERFORMANCE)
 # ==========================================================
 
 DB_NAME = "mm_bot_market.db"
@@ -90,6 +90,8 @@ def get_db():
 def init_db():
     conn = get_db()
     cursor = conn.cursor()
+    cursor.execute("PRAGMA journal_mode=WAL;")
+    
     cursor.execute(
         """
         CREATE TABLE IF NOT EXISTS users (
@@ -299,7 +301,7 @@ async def service_custom_bot(update: Update, context: ContextTypes.DEFAULT_TYPE)
 
 
 # ==========================================================
-# PRICING (INFORMATIONAL VIEWS)
+# PRICING
 # ==========================================================
 
 async def show_pricing(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -368,7 +370,7 @@ async def view_premium_package(update: Update, context: ContextTypes.DEFAULT_TYP
 
 
 # ==========================================================
-# DEMO & DEVELOPER REDIRECTS
+# REDIRECTS, FAQ & REVIEWS
 # ==========================================================
 
 async def demo_redirect(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -384,11 +386,6 @@ async def developer_contact(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "Developer နှင့် တိုက်ရိုက် ဆွေးနွေးလိုပါက Button ကို နှိပ်ပါ 👇",
         reply_markup=InlineKeyboardMarkup(keyboard)
     )
-
-
-# ==========================================================
-# FAQ & REVIEWS
-# ==========================================================
 
 async def show_faq(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = (
@@ -453,7 +450,7 @@ async def save_review_action(update: Update, rating: str):
 
 
 # ==========================================================
-# ORDER CONVERSATION (FLOW CONTROLLER)
+# ORDER CONVERSATION
 # ==========================================================
 
 async def start_order(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -475,7 +472,6 @@ async def start_order(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def set_package_type(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = update.message.text.strip()
 
-    # If clicked "Bot မှာယူရန်" again during selection
     if text == "🛒 Bot မှာယူရန်":
         keyboard = [
             ["🤖 Starter Package", "🤖 Standard Package"],
@@ -488,7 +484,6 @@ async def set_package_type(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         return PACKAGE_TYPE
 
-    # Package Name Mapping
     if "Starter" in text:
         package_name = "Starter Package"
     elif "Standard" in text:
@@ -532,18 +527,30 @@ async def set_bot_type(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     context.user_data["order"]["bot_type"] = text
 
-    keyboard = [["❌ Order ပယ်ဖျက်ရန်"]]
+    # 💡 ဖြည့်စွက်ချက်: စာမရိုက်ဘဲ ကျော်နိုင်ရန် Button ထည့်သွင်းပေးထားပါသည်
+    keyboard = [
+        ["⚙️ Function များ တိုက်ရိုက်ရွေးချယ်မည် ➡️"],
+        ["❌ Order ပယ်ဖျက်ရန်"]
+    ]
     await update.message.reply_text(
         f"✅ **ရွေးချယ်ထားသော Bot Type:** `{text}`\n\n"
-        "📝 သင်လိုချင်သော Bot Idea နှင့် အချက်အလက်များကို ရေးသားပေးပါ။\n"
-        "(ဥပမာ - Game ID လက်ခံပြီး Screenshot အော်ဒါယူပေးသော Bot)",
+        "📝 သင်လိုချင်သော Bot Idea နှင့် အချက်အလက်များကို စာဖြင့် ရေးသားပေးနိုင်ပါသည်။\n"
+        "(ဥပမာ - Game ID လက်ခံပြီး Screenshot အော်ဒါယူပေးသော Bot)\n\n"
+        "💡 *စာမရေးလိုပါက အောက်ပါ **'⚙️ Function များ တိုက်ရိုက်ရွေးချယ်မည် ➡️'** ခလုတ်ကို နှိပ်၍ ကျော်သွားနိုင်ပါသည်၊၊*",
         reply_markup=ReplyKeyboardMarkup(keyboard, resize_keyboard=True),
         parse_mode="Markdown"
     )
     return DESCRIPTION
 
 async def set_description(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    context.user_data["order"]["description"] = update.message.text
+    text = update.message.text.strip()
+
+    # 💡 စာမရိုက်ဘဲ Skip ခလုတ်နှိပ်ပါက Automatic အလိုအလျောက် သတ်မှတ်ပေးခြင်း
+    if text == "⚙️ Function များ တိုက်ရိုက်ရွေးချယ်မည် ➡️":
+        context.user_data["order"]["description"] = "သတ်မှတ်ချက်မရှိပါ (Function အလိုက် ရေးဆွဲပေးပါ)"
+    else:
+        context.user_data["order"]["description"] = text
+
     context.user_data["order"]["selected_features"] = []
 
     keyboard = [
@@ -667,7 +674,6 @@ async def set_budget(update: Update, context: ContextTypes.DEFAULT_TYPE):
     ]
     await update.message.reply_text(summary, reply_markup=ReplyKeyboardMarkup(review_keyboard, resize_keyboard=True), parse_mode="Markdown")
 
-    # Send Notification to Admin
     admin_text = (
         "📩 **NEW BOT ORDER**\n\n"
         f"📌 Order ID: `{order_id}`\n"
@@ -712,7 +718,7 @@ async def cancel_order(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 # ==========================================================
-# ADMIN COMMANDS (STATS, EXPORT, BROADCAST)
+# ADMIN COMMANDS
 # ==========================================================
 
 async def stats_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -834,6 +840,7 @@ async def broadcast_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 parse_mode="Markdown"
             )
             success_count += 1
+            await asyncio.sleep(0.05)
         except Exception:
             fail_count += 1
 
@@ -926,33 +933,67 @@ async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE) -> N
 
 
 # ==========================================================
-# ORDER STATUS SEARCH
+# PAGINATED MY ORDER STATUS SYSTEM
 # ==========================================================
 
-async def request_order_id(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("🔍 Order ID ရိုက်ထည့်ပါ\n\nဥပမာ - MMB-20260803-0001", reply_markup=ReplyKeyboardMarkup([["🔙 နောက်ပြန်ဆုပ်ရန်"]], resize_keyboard=True))
-    return ORDER_SEARCH
-
-async def check_order_status(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    order_id = update.message.text.strip().upper()
+def get_order_status_page(user_id: int, page: int = 1, items_per_page: int = 5):
     conn = get_db()
     cursor = conn.cursor()
-    cursor.execute("SELECT order_id, status, updated_date FROM orders WHERE order_id = ?", (order_id,))
-    result = cursor.fetchone()
+
+    cursor.execute("SELECT COUNT(*) FROM orders WHERE user_id = ?", (user_id,))
+    total_orders = cursor.fetchone()[0]
+
+    if total_orders == 0:
+        conn.close()
+        return "⚠️ **သင့်တွင် တင်ထားသော အော်ဒါ မရှိသေးပါခင်ဗျာ။**\n\nBot မှာယူလိုပါက '🛒 Bot မှာယူရန်' ခလုတ်ကို နှိပ်၍ မှာယူနိုင်ပါသည်။", None
+
+    total_pages = (total_orders + items_per_page - 1) // items_per_page
+    offset = (page - 1) * items_per_page
+
+    cursor.execute(
+        "SELECT order_id, bot_type, status, updated_date FROM orders WHERE user_id = ? ORDER BY id DESC LIMIT ? OFFSET ?",
+        (user_id, items_per_page, offset)
+    )
+    orders = cursor.fetchall()
     conn.close()
 
-    if result:
-        message = (
-            "📦 **Order Status**\n\n"
-            f"📌 ID: `{result[0]}`\n"
-            f"📊 Status: {result[1]}\n"
-            f"🕒 Update: {result[2]}"
+    text = f"📦 **သင့်၏ အော်ဒါများ အခြေအနေ (My Order Status)** [Page {page}/{total_pages}]\n\n"
+    for o in orders:
+        order_id, bot_type, status, updated_date = o
+        text += (
+            f"📌 **Order ID:** `{order_id}`\n"
+            f"🤖 **Bot Type:** `{bot_type}`\n"
+            f"📊 **Status:** {status}\n"
+            f"🕒 **နောက်ဆုံးပြင်ဆင်ချိန်:** {updated_date}\n"
+            f"-----------------------------------\n"
         )
-    else:
-        message = "❌ Order ID မတွေ့ပါ။\nOrder ID ကို ပြန်စစ်ပေးပါ။"
 
-    await update.message.reply_text(message, reply_markup=get_main_menu(), parse_mode="Markdown")
-    return ConversationHandler.END
+    buttons = []
+    if page > 1:
+        buttons.append(InlineKeyboardButton("⬅️ ယခင်", callback_data=f"orderpage_{page-1}"))
+    if page < total_pages:
+        buttons.append(InlineKeyboardButton("နောက်တစ်ခု ➡️", callback_data=f"orderpage_{page+1}"))
+
+    reply_markup = InlineKeyboardMarkup([buttons]) if buttons else None
+    return text, reply_markup
+
+async def show_my_order_status(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.message.from_user.id
+    text, reply_markup = get_order_status_page(user_id, page=1)
+    await update.message.reply_text(text, reply_markup=reply_markup, parse_mode="Markdown")
+
+async def order_page_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+
+    page = int(query.data.split("_")[1])
+    user_id = query.from_user.id
+
+    text, reply_markup = get_order_status_page(user_id, page=page)
+    try:
+        await query.edit_message_text(text, reply_markup=reply_markup, parse_mode="Markdown")
+    except Exception as e:
+        logging.error(f"Error updating order status page: {e}")
 
 
 # ==========================================================
@@ -964,13 +1005,13 @@ async def back_to_main(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 # ==========================================================
-# MAIN DISPATCHER (PRIORITY REGISTERED)
+# MAIN DISPATCHER
 # ==========================================================
 
 def main():
     app = Application.builder().token(BOT_TOKEN).build()
 
-    # 1. ORDER CONVERSATION (Registered FIRST to avoid handler conflicts)
+    # 1. ORDER CONVERSATION
     order_handler = ConversationHandler(
         entry_points=[MessageHandler(filters.Regex("^🛒 Bot မှာယူရန်$"), start_order)],
         states={
@@ -987,18 +1028,11 @@ def main():
         ]
     )
 
-    # 2. ORDER SEARCH CONVERSATION
-    status_handler = ConversationHandler(
-        entry_points=[MessageHandler(filters.Regex("^📦 My Order Status$"), request_order_id)],
-        states={
-            ORDER_SEARCH: [MessageHandler(filters.TEXT & ~filters.COMMAND & ~filters.Regex("^🔙 နောက်ပြန်ဆုပ်ရန်$"), check_order_status)]
-        },
-        fallbacks=[MessageHandler(filters.Regex("^🔙 နောက်ပြန်ဆုပ်ရန်$"), back_to_main)]
-    )
-
-    # Add Conversations First
     app.add_handler(order_handler)
-    app.add_handler(status_handler)
+
+    # 2. AUTO FETCH ORDER STATUS & PAGINATION HANDLERS
+    app.add_handler(MessageHandler(filters.Regex("^📦 My Order Status$"), show_my_order_status))
+    app.add_handler(CallbackQueryHandler(order_page_callback, pattern="^orderpage_"))
 
     # Base Commands
     app.add_handler(CommandHandler("start", start))
