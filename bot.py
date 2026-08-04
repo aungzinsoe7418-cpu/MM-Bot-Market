@@ -477,6 +477,41 @@ async def admin_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         os.remove(filename)
 
 # ==========================================================
+# EXTRA MENU HANDLERS (ADDED)
+# ==========================================================
+async def back_to_main(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text("🏠 ပင်မမီနူးသို့ ပြန်ရောက်ပါပြီ-", reply_markup=get_main_menu())
+
+async def handle_menu_buttons(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    text = update.message.text
+    if text == "🤖 ဝန်ဆောင်မှုများ":
+        await update.message.reply_text("📌 **ဝန်ဆောင်မှုများ**\n\nTelegram Bot အမျိုးမျိုး (Shop, Game, AI, Business) များကို စိတ်တိုင်းကျ ရေးဆွဲပေးပါသည်။", parse_mode="Markdown")
+    elif text == "💰🤖 ဈေးနှုန်းများ":
+        await update.message.reply_text("💰 **ဈေးနှုန်းများ**\n\n• Starter: 50,000 MMK မှစ၍\n• Standard: 150,000 MMK မှစ၍\n• Premium (Custom): 300,000 MMK အထက်", parse_mode="Markdown")
+    elif text == "🎬 Demo Bot စမ်းသုံးရန်":
+        await update.message.reply_text(f"🎬 အောက်ပါ Link တွင် Demo Bot များကို စမ်းသပ်ကြည့်နိုင်ပါသည်:\n\n👉 @{DEMO_BOT_USERNAME}")
+    elif text == "❓ FAQ":
+        faq_text = (
+            "❓ **မကြာခဏ မေးလေ့ရှိသော မေးခွန်းများ**\n\n"
+            "**Q: Bot အပ်ပြီး ဘယ်နှစ်ရက်ကြာမလဲ?**\n"
+            "A: Function အနည်းအများပေါ်မူတည်ပြီး ၃ ရက်မှ ၇ ရက်ခန့် ကြာနိုင်ပါသည်။\n\n"
+            "**Q: Maintenance ပါဝင်ပါသလား?**\n"
+            "A: ဟုတ်ကဲ့၊ ၁ လ အခမဲ့ Maintenance ပါဝင်ပါသည်။"
+        )
+        await update.message.reply_text(faq_text, parse_mode="Markdown")
+    elif text == "📦 My Order Status":
+        user_id = update.message.from_user.id
+        async with aiosqlite.connect(DB_NAME) as db:
+            async with db.execute("SELECT order_id, status FROM orders WHERE user_id = ? ORDER BY id DESC LIMIT 1", (user_id,)) as cursor:
+                row = await cursor.fetchone()
+        if row:
+            await update.message.reply_text(f"📦 **သင့်နောက်ဆုံး Order**\n\nID: `{row[0]}`\nStatus: {row[1]}", parse_mode="Markdown")
+        else:
+            await update.message.reply_text("🤷‍♂️ သင် Order တင်ထားခြင်း မရှိသေးပါ။")
+    elif text == "👨‍💻 Tech Support နှင့် ဆွေးနွေးရန်":
+        await update.message.reply_text(f"👨‍💻 Developer နှင့် တိုက်ရိုက် ဆက်သွယ်ရန်:\n👉 @{DEVELOPER_USERNAME}")
+
+# ==========================================================
 # MAIN DISPATCHER
 # ==========================================================
 def main():
@@ -530,7 +565,10 @@ def main():
 
     # Menu Triggers
     app.add_handler(MessageHandler(filters.Regex("^⚙️ My Profile$"), my_profile))
-    app.add_handler(MessageHandler(filters.Regex("^(🏠 ပင်မမီနူးသို့ ပြန်ရန်|🔙 နောက်ပြန်ဆုပ်ရန်)$"), lambda u, c: u.message.reply_text("ပင်မမီနူး-", reply_markup=get_main_menu())))
+    
+    # ပြင်ဆင်ပြီးသား Back Button နှင့် အခြား Menu ခလုတ်များ (FIXED)
+    app.add_handler(MessageHandler(filters.Regex("^(🏠 ပင်မမီနူးသို့ ပြန်ရန်|🔙 နောက်ပြန်ဆုပ်ရန်)$"), back_to_main))
+    app.add_handler(MessageHandler(filters.Regex("^(🤖 ဝန်ဆောင်မှုများ|💰🤖 ဈေးနှုန်းများ|🎬 Demo Bot စမ်းသုံးရန်|❓ FAQ|📦 My Order Status|👨‍💻 Tech Support နှင့် ဆွေးနွေးရန်)$"), handle_menu_buttons))
 
     # Admin Callback
     app.add_handler(CallbackQueryHandler(admin_callback, pattern="^admin_"))
@@ -540,3 +578,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+    
