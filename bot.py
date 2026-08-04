@@ -1,4 +1,5 @@
 import os
+import csv
 import html
 import logging
 import sqlite3
@@ -62,14 +63,11 @@ threading.Thread(target=run_server, daemon=True).start()
 # CONFIGURATION
 # ==========================================================
 
-ADMIN_CHAT_ID = 8582190375
+ADMIN_CHAT_ID = int(os.environ.get("ADMIN_CHAT_ID", "8582190375"))
 DEVELOPER_USERNAME = "superraizo7"
 DEMO_BOT_USERNAME = "OnlineshopDemo88_bot"
 
-BOT_TOKEN = os.environ.get(
-    "BOT_TOKEN",
-    "8912157146:AAHsVc4XkyoYc6xA2bGxBafqgli34L4PxAw"
-)
+BOT_TOKEN = os.environ.get("BOT_TOKEN")
 
 
 # ==========================================================
@@ -92,9 +90,9 @@ def get_db():
 def init_db():
     conn = get_db()
     cursor = conn.cursor()
-    # Users Table for Broadcast
     cursor.execute(
         """
+        CREATE TABLE IF NOT EXISTS users (
             user_id INTEGER PRIMARY KEY,
             name TEXT,
             username TEXT,
@@ -102,7 +100,6 @@ def init_db():
         )
         """
     )
-    # Orders Table
     cursor.execute(
         """
         CREATE TABLE IF NOT EXISTS orders (
@@ -122,7 +119,6 @@ def init_db():
         )
         """
     )
-    # Reviews Table
     cursor.execute(
         """
         CREATE TABLE IF NOT EXISTS reviews (
@@ -133,6 +129,7 @@ def init_db():
             created_date TEXT
         )
         """
+    )
     conn.commit()
     conn.close()
 
@@ -158,18 +155,27 @@ def get_main_menu():
 # ==========================================================
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user = update.message.from_user
     username = f"@{user.username}" if user.username else "No Username"
     current_date = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    # Track User in Database
+
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute(
         "INSERT OR IGNORE INTO users (user_id, name, username, joined_date) VALUES (?, ?, ?, ?)",
+        (user.id, user.first_name, username, current_date)
+    )
+    conn.commit()
+    conn.close()
 
     text = (
-        "🤖 MM Bot Market မှ ကြိုဆိုပါတယ်\n\n"
+        "🤖 **MM Bot Market မှ ကြိုဆိုပါတယ်**\n\n"
         "သင့် Business အတွက် Professional Telegram Bot များကို စိတ်ကြိုက် ဖန်တီးပေးပါတယ်။\n\n"
-        "✨ အထူးဝန်ဆောင်မှု: Bot မှာယူရာတွင် ငွေကြိုပေးရန် လုံးဝ မလိုပါ။ Bot ရေးဆွဲပြီးစီး၍ စိတ်ကြိုက် စမ်းသပ်ပြီးမှသာ ငွေချေရမည် ဖြစ်ပါသည်။\n\n"
+        "✨ **အထူးဝန်ဆောင်မှု:** Bot မှာယူရာတွင် **ငွေကြိုပေးရန် လုံးဝ မလိုပါ**။ Bot ရေးဆွဲပြီးစီး၍ စိတ်ကြိုက် စမ်းသပ်ပြီးမှသာ ငွေချေရမည် ဖြစ်ပါသည်။\n\n"
         "ကျွန်ုပ်တို့ ဖန်တီးပေးနိုင်သော Bot များ👇\n\n"
         "🛒 Online Shop Bot\n"
         "🎮 Game Top-up Bot\n"
+        "📢 Telegram Channel Bot\n"
         "🤖 AI Chat Bot\n"
         "🏢 Business Automation Bot\n"
         "✍️ Custom Bot\n\n"
@@ -197,10 +203,16 @@ async def show_services(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "🛠️ ကျေးဇူးပြု၍ လေ့လာလိုသော ဝန်ဆောင်မှုကို ရွေးချယ်ပါ 👇",
         reply_markup=ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
     )
+
 async def service_shop_bot(update: Update, context: ContextTypes.DEFAULT_TYPE):
-        "🤖 Telegram Shop Bot\n\n"
+    text = (
+        "🤖 **Telegram Shop Bot**\n\n"
         "➡️ Online Shop တွေအတွက် Telegram ကနေ အော်ဒါလက်ခံ၊ ဈေးနှုန်းပြ၊ ငွေပေးချေမှုအချက်အလက်ပြပြီး Customer နဲ့ စနစ်တကျ ဆက်သွယ်နိုင်တဲ့ Bot ဖြစ်ပါတယ်။\n\n"
+        "🪧 ပါဝင်နိုင်တဲ့ Function များ👇\n"
         "🛍️ Product Catalog — ကုန်ပစ္စည်းစာရင်း\n"
+        "🛒 Add to Cart — ခြင်းထဲထည့်ရန်\n"
+        "📝 Order Form — အော်ဒါဖြည့်ရန်\n"
+        "💳 Payment Info — ငွေပေးချေနည်း\n"
         "📦 Order Tracking — အော်ဒါစစ်ရန်\n"
         "🔔 Admin Notification — Admin အသိပေး\n\n"
         "💡 *မှာယူရာတွင် ငွေကြိုရှင်းရန် မလိုပါ၊ Bot စမ်းသပ်ပြီးမှ ငွေချေပါ။*"
@@ -210,6 +222,7 @@ async def service_shop_bot(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def service_game_bot(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = (
+        "🎮 **Game Top-up Bot**\n\n"
         "➡️ eFootball, MLBB, Free Fire စတဲ့ Game တွေအတွက် Top-up Order တွေကို အလိုအလျောက် လက်ခံပေးတဲ့ Bot ဖြစ်ပါတယ်။\n\n"
         "🪧 ပါဝင်နိုင်တဲ့ Function များ👇\n"
         "🎯 Game Selection — ဂိမ်းရွေးရန်\n"
@@ -218,12 +231,14 @@ async def service_game_bot(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "🖼️ Payment Screenshot — Screenshot တင်ရန်\n"
         "🧾 Order ID — အော်ဒါနံပါတ်\n"
         "🔔 Admin Alert — Admin အသိပေး\n\n"
+        "💡 *မှာယူရာတွင် ငွေကြိုရှင်းရန် မလိုပါ၊ Bot စမ်းသပ်ပြီးမှ ငွေချေပါ။*"
     )
     keyboard = [["🛒 Bot မှာယူရန်"], ["🔙 နောက်ပြန်ဆုပ်ရန်"]]
     await update.message.reply_text(text, reply_markup=ReplyKeyboardMarkup(keyboard, resize_keyboard=True), parse_mode="Markdown")
+
 async def service_channel_bot(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = (
-        "📢 Channel Management Bot\n\n"
+        "📢 **Channel Management Bot**\n\n"
         "➡️ Telegram Channel Owner တွေအတွက် Channel ကို အလွယ်တကူ စီမံခန့်ခွဲနိုင်တဲ့ Bot ဖြစ်ပါတယ်။\n\n"
         "🪧 ပါဝင်နိုင်တဲ့ Function များ👇\n"
         "👋 Auto Welcome — အလိုအလျောက် ကြိုဆို\n"
@@ -239,7 +254,7 @@ async def service_channel_bot(update: Update, context: ContextTypes.DEFAULT_TYPE
 
 async def service_ai_bot(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = (
-        "🤖 AI Chat Bot\n\n"
+        "🤖 **AI Chat Bot**\n\n"
         "➡️ လူ နဲ့ စကားပြောနိုင်တဲ့ Bot ဖြစ်ပြီး Customer Support, FAQ နဲ့ Information တွေကို အလိုအလျောက် ဖြေပေးနိုင်ပါတယ်။\n\n"
         "🪧 ပါဝင်နိုင်တဲ့ Function များ👇\n"
         "💬 AI Chat — AI စကားပြော\n"
@@ -254,7 +269,7 @@ async def service_ai_bot(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def service_business_bot(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = (
-        "🏢 Business Automation Bot\n\n"
+        "🏢 **Business Automation Bot**\n\n"
         "➡️ စီးပွားရေးလုပ်ငန်းတွေမှာ လူလုပ်ရတဲ့ အလုပ်တွေကို အလိုအလျောက်လုပ်ပေးတဲ့ Bot ဖြစ်ပါတယ်။\n\n"
         "🪧 ပါဝင်နိုင်တဲ့ Function များ👇\n"
         "👤 Customer Registration — စာရင်းသွင်း\n"
@@ -269,22 +284,33 @@ async def service_business_bot(update: Update, context: ContextTypes.DEFAULT_TYP
 
 async def service_custom_bot(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = (
-        "⚙️ Custom Telegram Bot\n\n"
+        "⚙️ **Custom Telegram Bot**\n\n"
         "➡️ Customer လိုချင်တဲ့ Function အတိုင်း အစကနေ အထူးရေးသားပေးတဲ့ Bot ဖြစ်ပါတယ်။\n\n"
+        "✨ Custom Features — စိတ်ကြိုက် Function\n"
+        "🔗 API Integration — API ချိတ်ဆက်\n"
         "🗄️ Database System — Database စနစ်\n"
+        "🔐 User Login — Login စနစ်\n"
         "👨‍💼 Admin Panel — Admin စီမံခန့်ခွဲမှု\n"
+        "🚀 Future Upgrade — နောင်တိုးချဲ့နိုင်\n\n"
+        "💡 *မှာယူရာတွင် ငွေကြိုရှင်းရန် မလိုပါ၊ Bot စမ်းသပ်ပြီးမှ ငွေချေပါ။*"
+    )
+    keyboard = [["🛒 Bot မှာယူရန်"], ["🔙 နောက်ပြန်ဆုပ်ရန်"]]
     await update.message.reply_text(text, reply_markup=ReplyKeyboardMarkup(keyboard, resize_keyboard=True), parse_mode="Markdown")
 
+
 # ==========================================================
+# PRICING
+# ==========================================================
+
 async def show_pricing(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = (
-        "💰🤖 Bot Development Packages\n\n"
-        "✨ သတိပြုရန်: Bot မှာယူသူများအနေဖြင့် ငွေကြိုရှင်းရန် မလိုပါ။ Bot ရေးဆွဲပြီးစီးမှ ငွေချေရမည် ဖြစ်ပါသည်။\n\n"
-        "🤖 Starter Package (အခြေခံ Package)\n"
+        "💰🤖 **Bot Development Packages**\n\n"
+        "✨ **သတိပြုရန်:** Bot မှာယူသူများအနေဖြင့် **ငွေကြိုရှင်းရန် မလိုပါ**။ Bot ရေးဆွဲပြီးစီးမှ ငွေချေရမည် ဖြစ်ပါသည်။\n\n"
+        "🤖 **Starter Package (အခြေခံ Package)**\n"
         "💰➡️ 50,000 – 150,000 MMK\n\n"
-        "🤖 Standard Package (အလယ်အလတ် Package)\n"
+        "🤖 **Standard Package (အလယ်အလတ် Package)**\n"
         "💰➡️ 150,000 – 300,000 MMK\n\n"
-        "🤖 Premium Package (အဆင့်မြင့် Package)\n"
+        "🤖 **Premium Package (အဆင့်မြင့် Package)**\n"
         "💰➡️ 300,000 – 600,000+ MMK\n\n"
         "အောက်ပါခလုတ်မှတစ်ဆင့် လိုအပ်သော Package ကို ရွေးချယ်နိုင်ပါသည် 👇"
     )
@@ -292,11 +318,14 @@ async def show_pricing(update: Update, context: ContextTypes.DEFAULT_TYPE):
         ["🤖 Starter Package", "🤖 Standard Package"],
         ["🤖 Premium Package (Customize Bot)"],
         ["🛒 Bot မှာယူရန်", "🔙 နောက်ပြန်ဆုပ်ရန်"]
+    ]
     await update.message.reply_text(text, reply_markup=ReplyKeyboardMarkup(keyboard, resize_keyboard=True), parse_mode="Markdown")
 
 async def view_starter_package(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = (
+        "🤖 **Starter Package (အခြေခံ Package)**\n\n"
         "💰➡️ 50,000 – 150,000 MMK\n\n"
+        "💬 Auto Reply — အလိုအလျောက် စာပြန် (AR)\n"
         "📋 Simple Menu — ရိုးရှင်းသော Menu (SM)\n"
         "📝 Basic Order Form — အခြေခံ အော်ဒါဖြည့်စနစ် (BOF)\n"
         "🔔 Admin Notification — Admin အသိပေးစနစ် (AN)\n\n"
@@ -304,6 +333,16 @@ async def view_starter_package(update: Update, context: ContextTypes.DEFAULT_TYP
     )
     keyboard = [["🛒 Bot မှာယူရန်"], ["💰🤖 ဈေးနှုန်းများ", "🔙 နောက်ပြန်ဆုပ်ရန်"]]
     await update.message.reply_text(text, reply_markup=ReplyKeyboardMarkup(keyboard, resize_keyboard=True), parse_mode="Markdown")
+
+async def view_standard_package(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    text = (
+        "🤖 **Standard Package (အလယ်အလတ် Package)**\n\n"
+        "💰➡️ 150,000 – 300,000 MMK\n\n"
+        "🛍️ Product Catalog — ကုန်ပစ္စည်းစာရင်း (PC)\n"
+        "🛒 Order System — အော်ဒါစနစ် (OS)\n"
+        "🖼️ Payment Screenshot — ငွေပေးချေ Screenshot စစ်ဆေးမှု (PS)\n"
+        "🗄️ Database — ဒေတာသိမ်းဆည်းစနစ် (DB)\n"
+        "👨‍💼 Admin Control — Admin ထိန်းချုပ်မှု (AC)\n\n"
         "✨ *ငွေကြိုပေးရန် မလိုပါ။ Bot ပြီးစီးမှ ငွေချေပါ။*"
     )
     keyboard = [["🛒 Bot မှာယူရန်"], ["💰🤖 ဈေးနှုန်းများ", "🔙 နောက်ပြန်ဆုပ်ရန်"]]
@@ -311,7 +350,7 @@ async def view_starter_package(update: Update, context: ContextTypes.DEFAULT_TYP
 
 async def view_premium_package(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = (
-        "🤖 Premium Package (အဆင့်မြင့် Package)\n\n"
+        "🤖 **Premium Package (အဆင့်မြင့် Package)**\n\n"
         "💰➡️ 300,000 – 600,000+ MMK\n\n"
         "⚙️ Advanced Features — အဆင့်မြင့် Function များ (AF)\n"
         "🔗 API Integration — ပြင်ပစနစ် ချိတ်ဆက်မှု (API)\n"
@@ -319,6 +358,7 @@ async def view_premium_package(update: Update, context: ContextTypes.DEFAULT_TYP
         "🖥️ Admin Panel — Admin စီမံခန့်ခွဲ Panel (AP)\n"
         "✨ Custom System — စိတ်ကြိုက် System ဖန်တီးမှု (CS)\n\n"
         "✨ *ငွေကြိုပေးရန် မလိုပါ။ Bot ပြီးစီးမှ ငွေချေပါ။*"
+    )
     keyboard = [
         ["🛒 Bot မှာယူရန်"],
         ["🚨 🤖 Customize Bot အတွက် Developer (စောက်ချောကြီး) ကို တိုက်ရိုက်ဆက်သွယ်ပါ"],
@@ -352,9 +392,9 @@ async def developer_contact(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def show_faq(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = (
-        "❓ Frequently Asked Questions\n\n"
+        "❓ **Frequently Asked Questions**\n\n"
         "Q: Bot မှာယူရင် ငွေကြိုရှင်းပေးရပါသလား?\n"
-        "A: ငွေကြိုရှင်းရန် မလိုပါခင်ဗျာ။ Bot ရေးဆွဲပြီးစီး၍ စိတ်ကြိုက် စမ်းသပ်ပြီးမှသာ ငွေချေရမည် ဖြစ်ပါတယ်။\n\n"
+        "A: **ငွေကြိုရှင်းရန် မလိုပါခင်ဗျာ။** Bot ရေးဆွဲပြီးစီး၍ စိတ်ကြိုက် စမ်းသပ်ပြီးမှသာ ငွေချေရမည် ဖြစ်ပါတယ်။\n\n"
         "Q: Bot ဖန်တီးဖို့ ဘယ်လောက်ကြာပါသလဲ?\n"
         "A: ၃ ရက်မှ ၁၄ ရက်အထိ ကြာနိုင်ပါတယ်။\n\n"
         "Q: ရှိပြီးသား Bot ကို ပြင်ဆင်နိုင်ပါသလား?\n"
@@ -367,6 +407,7 @@ async def show_faq(update: Update, context: ContextTypes.DEFAULT_TYPE):
         text,
         reply_markup=InlineKeyboardMarkup(keyboard),
         parse_mode="Markdown"
+    )
 
 async def show_reviews(update: Update, context: ContextTypes.DEFAULT_TYPE):
     conn = get_db()
@@ -375,7 +416,7 @@ async def show_reviews(update: Update, context: ContextTypes.DEFAULT_TYPE):
     rows = cursor.fetchall()
     conn.close()
 
-    review_text = "⭐ Customer Reviews & Feedback\n\n"
+    review_text = "⭐ **Customer Reviews & Feedback**\n\n"
     if rows:
         for r in rows:
             review_text += f"👤 {r[0]} | Rating: {r[1]} | 📅 {r[2]}\n"
@@ -383,7 +424,7 @@ async def show_reviews(update: Update, context: ContextTypes.DEFAULT_TYPE):
         review_text += "✨ ယခုထိ Review ပေးထားသူ မရှိသေးပါ။ Order တင်ပြီး Review ပေးနိုင်ပါတယ်။"
 
     keyboard = [
-        ["⭐⭐⭐", "⭐⭐⭐⭐", "⭐⭐⭐⭐⭐"],
+        ["⭐⭐⭐", "⭐⭐⭐", "⭐⭐⭐⭐⭐"],
         ["🛒 Bot မှာယူရန်", "🔙 နောက်ပြန်ဆုပ်ရန်"]
     ]
     await update.message.reply_text(review_text, reply_markup=ReplyKeyboardMarkup(keyboard, resize_keyboard=True), parse_mode="Markdown")
@@ -423,7 +464,7 @@ async def start_order(update: Update, context: ContextTypes.DEFAULT_TYPE):
         ["❌ Order ပယ်ဖျက်ရန်"]
     ]
     await update.message.reply_text(
-        "🛒 Bot မှာယူရန် Package ရွေးချယ်ပါ\n\n"
+        "🛒 **Bot မှာယူရန် Package ရွေးချယ်ပါ**\n\n"
         "✨ *မှာယူရာတွင် ငွေကြိုရှင်းရန် မလိုပါ။ Bot ပြီးစီး၍ စမ်းသပ်ပြီးမှသာ ငွေချေပါ။*\n"
         "(အချိန်မရွေး '❌ Order ပယ်ဖျက်ရန်' ကိုနှိပ်၍ ပယ်ဖျက်နိုင်ပါသည်)",
         reply_markup=ReplyKeyboardMarkup(keyboard, resize_keyboard=True),
@@ -462,6 +503,7 @@ async def set_description(update: Update, context: ContextTypes.DEFAULT_TYPE):
         ["✅ User Management", "✅ AI Function"],
         ["❌ Order ပယ်ဖျက်ရန်"]
     ]
+    await update.message.reply_text(
         "⚙️ လိုအပ်သော Function ကို ရွေးပါ သို့မဟုတ် စာဖြင့်ရေးပို့ပါ",
         reply_markup=ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
     )
@@ -520,14 +562,16 @@ async def set_budget(update: Update, context: ContextTypes.DEFAULT_TYPE):
     conn.close()
 
     summary = (
-        "✅ Order တင်ခြင်း အောင်မြင်ပါပြီ\n\n"
-        f"📌 Order ID: {order_id}\n"
+        "✅ **Order တင်ခြင်း အောင်မြင်ပါပြီ**\n\n"
+        f"📌 Order ID: `{order_id}`\n"
         f"📦 Package: {order_data['package']}\n"
         f"🤖 Bot Type: {order_data['bot_type']}\n"
         f"📝 Description: {order_data['description']}\n"
         f"⚙️ Features: {order_data['features']}\n"
         f"💰 Budget: {order_data['budget']}\n\n"
+        "✨ **မှတ်ချက်:** ငွေကြိုပေးရန် မလိုပါ။ Bot ရေးဆွဲပြီးစီး၍ စမ်းသပ်ပြီးမှသာ ငွေပေးချေရမည် ဖြစ်ပါသည်။\n\n"
         "Developer မှ စစ်ဆေးပြီး မကြာမီ ဆက်သွယ်ပေးပါမည်။ 🙏"
+    )
     
     review_keyboard = [
         ["⭐⭐⭐", "⭐⭐⭐⭐", "⭐⭐⭐⭐⭐"],
@@ -537,11 +581,11 @@ async def set_budget(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     # Send Notification to Admin
     admin_text = (
-        "📩 NEW BOT ORDER\n\n"
-        f"📌 Order ID: {order_id}\n"
+        "📩 **NEW BOT ORDER**\n\n"
+        f"📌 Order ID: `{order_id}`\n"
         f"👤 Customer: {user.first_name}\n"
         f"📱 Username: {username}\n"
-        f"🆔 User ID: {user.id}\n\n"
+        f"🆔 User ID: `{user.id}`\n\n"
         f"📦 Package: {order_data['package']}\n"
         f"🤖 Bot: {order_data['bot_type']}\n"
         f"📝 Idea: {order_data['description']}\n"
@@ -564,10 +608,13 @@ async def set_budget(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
         await context.bot.send_message(
             chat_id=ADMIN_CHAT_ID,
+            text=admin_text,
             reply_markup=InlineKeyboardMarkup(admin_inline_keyboard),
+            parse_mode="Markdown"
         )
     except Exception as error:
         logging.error(f"Admin notification failed: {error}")
+
     return ConversationHandler.END
 
 async def cancel_order(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -585,6 +632,7 @@ async def stats_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("❌ ဒီ Command ကို Admin သာ အသုံးပြုနိုင်ပါသည်။")
         return
 
+    conn = get_db()
     cursor = conn.cursor()
     
     cursor.execute("SELECT COUNT(*) FROM users")
@@ -594,12 +642,15 @@ async def stats_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     total_orders = cursor.fetchone()[0]
 
     cursor.execute("SELECT COUNT(*) FROM orders WHERE status LIKE '%Pending%'")
+    pending_orders = cursor.fetchone()[0]
 
     cursor.execute("SELECT COUNT(*) FROM orders WHERE status LIKE '%Progress%'")
     progress_orders = cursor.fetchone()[0]
 
     cursor.execute("SELECT COUNT(*) FROM orders WHERE status LIKE '%Completed%'")
     completed_orders = cursor.fetchone()[0]
+
+    cursor.execute("SELECT COUNT(*) FROM orders WHERE status LIKE '%Cancelled%'")
     cancelled_orders = cursor.fetchone()[0]
 
     cursor.execute("SELECT COUNT(*) FROM reviews")
@@ -608,16 +659,16 @@ async def stats_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     conn.close()
 
     stats_msg = (
-        "📊 MM Bot Market Dashboard & Analytics\n\n"
-        f"👥 စုစုပေါင်း အသုံးပြုသူ (Users): {total_users} ယောက်\n"
-        f"📦 စုစုပေါင်း အော်ဒါ (Total Orders): {total_orders} ခု\n"
+        "📊 **MM Bot Market Dashboard & Analytics**\n\n"
+        f"👥 **စုစုပေါင်း အသုံးပြုသူ (Users):** {total_users} ယောက်\n"
+        f"📦 **စုစုပေါင်း အော်ဒါ (Total Orders):** {total_orders} ခု\n"
         "-----------------------------------\n"
-        f"🟡 စောင့်ဆိုင်းဆဲ (Pending): {pending_orders} ခု\n"
-        f"⚙️ ရေးဆွဲနေဆဲ (In Progress): {progress_orders} ခု\n"
-        f"✅ ပြီးစီးပြီး (Completed): {completed_orders} ခု\n"
-        f"🔴 ပယ်ဖျက်လိုက်သော (Cancelled): {cancelled_orders} ခု\n"
+        f"🟡 **စောင့်ဆိုင်းဆဲ (Pending):** {pending_orders} ခု\n"
+        f"⚙️ **ရေးဆွဲနေဆဲ (In Progress):** {progress_orders} ခု\n"
+        f"✅ **ပြီးစီးပြီး (Completed):** {completed_orders} ခု\n"
+        f"🔴 **ပယ်ဖျက်လိုက်သော (Cancelled):** {cancelled_orders} ခု\n"
         "-----------------------------------\n"
-        f"⭐ စုစုပေါင်း သုံးသပ်ချက်များ (Reviews): {total_reviews} ခု"
+        f"⭐ **စုစုပေါင်း သုံးသပ်ချက်များ (Reviews):** {total_reviews} ခု"
     )
     await update.message.reply_text(stats_msg, parse_mode="Markdown")
 
@@ -639,17 +690,22 @@ async def export_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     filename = f"orders_export_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
     
-    # Write CSV with UTF-8 BOM so Excel displays Myanmar text correctly
     with open(filename, mode="w", newline="", encoding="utf-8-sig") as file:
         writer = csv.writer(file)
         writer.writerow([
             "ID", "Order ID", "User ID", "Name", "Username", 
+            "Customer Info", "Bot Type", "Description", "Features", 
+            "Budget", "Status", "Created Date", "Updated Date"
+        ])
+        writer.writerows(rows)
+
     try:
         with open(filename, "rb") as doc:
             await context.bot.send_document(
                 chat_id=ADMIN_CHAT_ID,
                 document=doc,
-                caption=f"📊 MM Bot Market - Order Data Export\n📅 {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}",
+                filename=filename,
+                caption=f"📊 **MM Bot Market - Order Data Export**\n📅 {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}",
                 parse_mode="Markdown"
             )
     except Exception as e:
@@ -662,7 +718,9 @@ async def export_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # ==========================================================
 # ADMIN INTERACTIVE STATUS CALLBACK
 # ==========================================================
+
 async def admin_status_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
     await query.answer()
 
     data = query.data
@@ -670,15 +728,31 @@ async def admin_status_callback(update: Update, context: ContextTypes.DEFAULT_TY
     action = parts[1]
     order_id = "_".join(parts[2:])
 
+    status_map = {
+        "accept": "Accepted 🟢 (စတင်လက်ခံထားသည်)",
         "progress": "In Progress 🟡 (ရေးဆွဲနေသည်)",
+        "complete": "Completed ✅ (ပြီးစီးပါပြီ)",
+        "cancel": "Cancelled 🔴 (ပယ်ဖျက်လိုက်သည်)"
     }
+
     new_status = status_map.get(action, "Updated 🔵")
+    updated_date = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute("SELECT user_id FROM orders WHERE order_id = ?", (order_id,))
+    order = cursor.fetchone()
+
+    if order:
+        user_id = order[0]
+        cursor.execute("UPDATE orders SET status = ?, updated_date = ? WHERE order_id = ?", (new_status, updated_date, order_id))
+        conn.commit()
 
         try:
             user_msg = (
-                f"🔔 Order Status အသစ်\n\n"
-                f"📌 Order ID: {order_id}\n"
-                f"📊 Status: {new_status}\n"
+                f"🔔 **Order Status အသစ်**\n\n"
+                f"📌 Order ID: `{order_id}`\n"
+                f"📊 Status: **{new_status}**\n"
                 f"🕒 Update ပြုလုပ်ချိန်: {updated_date}\n\n"
                 f"ကျေးဇူးတင်ရှိပါသည်။ 🙏"
             )
@@ -687,7 +761,7 @@ async def admin_status_callback(update: Update, context: ContextTypes.DEFAULT_TY
             logging.error(f"Failed to send customer notification: {e}")
 
         original_text = query.message.text
-        new_admin_text = f"{original_text}\n\n-------------------\n🔄 Current Status: {new_status}\n🕒 {updated_date}"
+        new_admin_text = f"{original_text}\n\n-------------------\n🔄 **Current Status:** {new_status}\n🕒 {updated_date}"
         await query.edit_message_text(
             text=new_admin_text,
             reply_markup=query.message.reply_markup,
@@ -708,9 +782,10 @@ async def broadcast_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not context.args:
         await update.message.reply_text(
             "❌ စာသား ထည့်သွင်းပေးပါ။\n\n"
-            "ဥပမာ - /broadcast မင်္ဂလာပါ၊ MM Bot Market မှ Promotion အသစ်များ ရရှိနိုင်ပါပြီ။",
+            "ဥပမာ - `/broadcast မင်္ဂလာပါ၊ MM Bot Market မှ Promotion အသစ်များ ရရှိနိုင်ပါပြီ။`",
             parse_mode="Markdown"
         )
+        return
 
     broadcast_msg = " ".join(context.args)
 
@@ -730,7 +805,7 @@ async def broadcast_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         try:
             await context.bot.send_message(
                 chat_id=user_id,
-                text=f"📢 MM Bot Market မှ အသိပေးချက်\n\n{broadcast_msg}",
+                text=f"📢 **MM Bot Market မှ အသိပေးချက်**\n\n{broadcast_msg}",
                 parse_mode="Markdown"
             )
             success_count += 1
@@ -738,7 +813,7 @@ async def broadcast_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             fail_count += 1
 
     await update.message.reply_text(
-        f"✅ Broadcast ပို့ဆောင်မှု ပြီးစီးပါပြီ\n\n"
+        f"✅ **Broadcast ပို့ဆောင်မှု ပြီးစီးပါပြီ**\n\n"
         f"🟢 အောင်မြင်စွာ ရောက်ရှိ: {success_count}\n"
         f"🔴 မရောက်ရှိပါ/Blocked: {fail_count}"
     )
@@ -751,17 +826,20 @@ async def broadcast_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE) -> None:
     logging.error("Exception while handling an update:", exc_info=context.error)
 
-    tb_list = traceback.format_exception(None, context.error, context.error.traceback)
+    tb_list = traceback.format_exception(None, context.error, context.error.__traceback__)
+    tb_string = "".join(tb_list)
 
     error_message = (
-        "🚨 AUTOMATIC SYSTEM ERROR ALERT\n\n"
+        "🚨 **AUTOMATIC SYSTEM ERROR ALERT**\n\n"
         f"An exception was raised while handling an update:\n"
-        f"python\n{html.escape(tb_string[-3000:])}\n``"
+        f"```python\n{html.escape(tb_string[-3000:])}\n```"
     )
 
     try:
+        await context.bot.send_message(
             chat_id=ADMIN_CHAT_ID,
             text=error_message,
+            parse_mode="Markdown"
         )
     except Exception as e:
         logging.error(f"Failed to send error alert to Admin: {e}")
@@ -785,8 +863,8 @@ async def check_order_status(update: Update, context: ContextTypes.DEFAULT_TYPE)
 
     if result:
         message = (
-            "📦 Order Status\n\n"
-            f"📌 ID: {result[0]}\n"
+            "📦 **Order Status**\n\n"
+            f"📌 ID: `{result[0]}`\n"
             f"📊 Status: {result[1]}\n"
             f"🕒 Update: {result[2]}"
         )
@@ -798,13 +876,22 @@ async def check_order_status(update: Update, context: ContextTypes.DEFAULT_TYPE)
 
 
 # ==========================================================
+# BACK TO MAIN MENU ROUTE
 # ==========================================================
 
 async def back_to_main(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("ပင်မမီနူးသို့ ပြန်လည်ရောက်ရှိပါပြီ။", reply_markup=get_main_menu())
+
+
 # ==========================================================
+# MAIN DISPATCHER
 # ==========================================================
 
+def main():
+    app = Application.builder().token(BOT_TOKEN).build()
+
+    order_handler = ConversationHandler(
+        entry_points=[MessageHandler(filters.Regex("^🛒 Bot မှာယူရန်$"), start_order)],
         states={
             PACKAGE_TYPE: [MessageHandler(filters.TEXT & ~filters.COMMAND & ~filters.Regex("^(🔙 နောက်ပြန်ဆုပ်ရန်|❌ Order ပယ်ဖျက်ရန်)$"), set_package_type)],
             BOT_TYPE: [MessageHandler(filters.TEXT & ~filters.COMMAND & ~filters.Regex("^(🔙 နောက်ပြန်ဆုပ်ရန်|❌ Order ပယ်ဖျက်ရန်)$"), set_bot_type)],
@@ -827,7 +914,10 @@ async def back_to_main(update: Update, context: ContextTypes.DEFAULT_TYPE):
         fallbacks=[MessageHandler(filters.Regex("^🔙 နောက်ပြန်ဆုပ်ရန်$"), back_to_main)]
     )
 
+    # Base Commands
+    app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("broadcast", broadcast_command))
+    app.add_handler(CommandHandler("stats", stats_command))
     app.add_handler(CommandHandler("export", export_command))
 
     # Service Buttons
@@ -874,5 +964,5 @@ async def back_to_main(update: Update, context: ContextTypes.DEFAULT_TYPE):
     print("MM Bot Market Enterprise Version Started...")
     app.run_polling(drop_pending_updates=True)
 
-if name == "main":
+if __name__ == "__main__":
     main()
