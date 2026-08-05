@@ -15,9 +15,7 @@ from telegram import (
     Update,
     ReplyKeyboardMarkup,
     InlineKeyboardButton,
-    InlineKeyboardMarkup,
-    InputMediaPhoto,
-    InputMediaVideo
+    InlineKeyboardMarkup
 )
 
 from telegram.ext import (
@@ -64,7 +62,7 @@ threading.Thread(target=run_server, daemon=True).start()
 
 
 # ==========================================================
-# CONFIGURATION
+# CONFIGURATION & SAFETY CHECK
 # ==========================================================
 
 ADMIN_CHAT_ID = int(os.environ.get("ADMIN_CHAT_ID", "8582190375"))
@@ -72,6 +70,8 @@ DEVELOPER_USERNAME = "superraizo7"
 DEMO_BOT_USERNAME = "OnlineshopDemo88_bot"
 
 BOT_TOKEN = os.environ.get("BOT_TOKEN")
+if not BOT_TOKEN:
+    raise ValueError("❌ မူလ Error: BOT_TOKEN Environment Variable ကို ရှာမတွေ့ပါ။ Render သို့မဟုတ် VPS တွင် BOT_TOKEN ထည့်သွင်းပေးပါ။")
 
 
 # ==========================================================
@@ -454,7 +454,7 @@ async def start_profile_edit(update: Update, context: ContextTypes.DEFAULT_TYPE)
         return
     keyboard = [["❌ ပယ်ဖျက်ရန်"]]
     await update.message.reply_text(
-        "👤 ကျေးဇူးပြု၍ သင့်အမည်၊ ဖုန်းနံပါတ်နှင့် Business နာမည်ကို ပုံစံတကျ ရေးပေးပါခင်ဗျာ။\n\n"
+        "👤 ကျေးဇူးပြု၍ သင့်အမည်၊ ဖုန်းနံပါတ်နှင့် Business နာမည်ကို ပုံစံတကျ ရေးပေးပါခင်ဗျာ。\n\n"
         "ဥပမာ - Aung, 09123456789, Online Shop",
         reply_markup=ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
     )
@@ -526,7 +526,6 @@ async def show_reviews(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
     user = update.message.from_user
     
-    # Check if user has a Completed order (Verified Customer Review System)
     async with aiosqlite.connect(DB_NAME) as conn:
         async with conn.execute("SELECT COUNT(*) FROM orders WHERE user_id = ? AND status LIKE '%Completed%'", (user.id,)) as cursor:
             completed_count = (await cursor.fetchone())[0]
@@ -719,7 +718,6 @@ async def set_features(update: Update, context: ContextTypes.DEFAULT_TYPE):
         
         context.user_data["order"]["features"] = ", ".join(selected)
         
-        # Check if user profile already has saved info
         user = update.message.from_user
         async with aiosqlite.connect(DB_NAME) as conn:
             async with conn.execute("SELECT name, phone, business_name FROM users WHERE user_id = ?", (user.id,)) as cursor:
@@ -789,7 +787,6 @@ async def set_budget(update: Update, context: ContextTypes.DEFAULT_TYPE):
     order_data = context.user_data["order"]
     order_data["budget"] = update.message.text
 
-    # Show Order Summary & Confirmation Step instead of saving directly
     summary = (
         "📋 အောက်ပါအချက်အလက်များ မှန်ကန်မှုရှိမရှိ စစ်ဆေးပေးပါ။\n\n"
         f"📦 Package: {order_data.get('package', 'Starter Package')}\n"
@@ -827,7 +824,6 @@ async def confirm_order_callback(update: Update, context: ContextTypes.DEFAULT_T
         return ConversationHandler.END
 
     if data == "order_edit":
-        # Restart order from package type or allow editing
         context.user_data["order"] = {}
         keyboard = [
             ["🤖 Starter Package", "🤖 Standard Package"],
@@ -972,7 +968,7 @@ async def send_broadcast_message(update: Update, context: ContextTypes.DEFAULT_T
             fail_count += 1
             logging.error(f"Broadcast failed for {uid}: {e}")
 
-    await update.message.reply_text(f"📢 Broadcast ပို့ပြီးပါပြီ။\n✅ အောင်မြင်မှု: {success_count}\n❌ မအောင်မြင်: {fail_count}")
+    await update.message.reply_text(f"📢 Broadcast ပို့ပြီးပါပြီ。\n✅ အောင်မြင်မှု: {success_count}\n❌ မအောင်မြင်: {fail_count}")
     return ConversationHandler.END
 
 async def admin_status_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -999,7 +995,20 @@ async def admin_status_callback(update: Update, context: ContextTypes.DEFAULT_TY
                 row = await cursor.fetchone()
             await conn.commit()
 
-        await query.edit_message_text(f"✅ Admin Status Updated: {order_id} -> {new_status}")
+        if action == "accept":
+            next_inline_keyboard = [
+                [
+                    InlineKeyboardButton("✅ Mark as Completed", callback_data=f"status_complete_{order_id}"),
+                    InlineKeyboardButton("🔴 Cancel", callback_data=f"status_cancel_{order_id}")
+                ]
+            ]
+            reply_markup = InlineKeyboardMarkup(next_inline_keyboard)
+            await query.edit_message_text(
+                f"✅ Admin Status Updated: {order_id} -> {new_status}\n\n(ပြီးဆုံးပါက အောက်ပါခလုတ်ကို နှိပ်ပါ)",
+                reply_markup=reply_markup
+            )
+        else:
+            await query.edit_message_text(f"✅ Admin Status Updated: {order_id} -> {new_status}")
 
         if action == "complete" and row:
             customer_user_id = row[0]
@@ -1009,13 +1018,56 @@ async def admin_status_callback(update: Update, context: ContextTypes.DEFAULT_TY
             try:
                 await context.bot.send_message(
                     chat_id=customer_user_id,
-                    text=f"🎉 သင့်ရဲ့ အော်ဒါ (Order ID: {order_id}) ပြီးစီးသွားပါပြီရှင်/ခင်ဗျာ။\nBot လေးကို သဘောကျရင် Review လေး ပေးခဲ့ပါဦးရှင် 👇",
+                    text=f"🎉 သင့်ရဲ့ အော်ဒါ (Order ID: {order_id}) ပြီးစီးသွားပါပြီရှင်/ခင်ဗျာ。\nBot လေးကို သဘောကျရင် Review လေး ပေးခဲ့ပါဦးရှင် 👇",
                     reply_markup=ReplyKeyboardMarkup(review_kb, resize_keyboard=True)
                 )
             except Exception as e:
                 logging.error(f"Failed to send review prompt to customer: {e}")
     else:
-        await query.edit_message_text(f"✅ Admin Status Updated: {data}")
+        await query.edit_message_text(f"✅ Admin Chat Status Updated: {data}")
+
+# ==========================================================
+# ADMIN COMMAND: /completed <Order ID>
+# ==========================================================
+async def admin_complete_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if update.message.from_user.id != ADMIN_CHAT_ID:
+        await update.message.reply_text("❌ ဒီ Command ကို Admin သာ အသုံးပြုနိုင်ပါသည်။")
+        return
+
+    args = context.args
+    if not args:
+        await update.message.reply_text("⚠️ ကျေးဇူးပြု၍ Order ID ထည့်ပေးပါခင်ဗျာ。\nဥပမာ - `/completed MMB-20260804-001`", parse_mode="Markdown")
+        return
+
+    order_id = args[0].strip()
+    new_status = "Completed ✅"
+    current_date = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+    async with aiosqlite.connect(DB_NAME) as conn:
+        async with conn.execute("SELECT user_id FROM orders WHERE order_id = ?", (order_id,)) as cursor:
+            row = await cursor.fetchone()
+        
+        if not row:
+            await update.message.reply_text(f"❌ '{order_id}' နှင့် ကိုက်ညီသော Order မရှိပါ။")
+            return
+
+        await conn.execute("UPDATE orders SET status = ?, updated_date = ? WHERE order_id = ?", (new_status, current_date, order_id))
+        await conn.commit()
+        customer_user_id = row[0]
+
+    await update.message.reply_text(f"✅ Admin Status Updated: {order_id} -> {new_status}")
+
+    review_kb = [
+        ["⭐⭐⭐", "⭐⭐⭐⭐", "⭐⭐⭐⭐⭐"],
+    ]
+    try:
+        await context.bot.send_message(
+            chat_id=customer_user_id,
+            text=f"🎉 သင့်ရဲ့ အော်ဒါ (Order ID: {order_id}) ပြီးစီးသွားပါပြီရှင်/ခင်ဗျာ。\nBot လေးကို သဘောကျရင် Review လေး ပေးခဲ့ပါဦးရှင် 👇",
+            reply_markup=ReplyKeyboardMarkup(review_kb, resize_keyboard=True)
+        )
+    except Exception as e:
+        logging.error(f"Failed to send review prompt to customer via command: {e}")
 
 async def stats_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.message.from_user.id != ADMIN_CHAT_ID:
@@ -1082,7 +1134,37 @@ async def export_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         ])
         writer.writerows(rows)
 
-    await update.message.document(document=open(filename, "rb"))
+    with open(filename, "rb") as doc:
+        await update.message.reply_document(document=doc)
+    
+    if os.path.exists(filename):
+        os.remove(filename)
+
+async def export_users_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if update.message.from_user.id != ADMIN_CHAT_ID:
+        await update.message.reply_text("❌ ဒီ Command ကို Admin သာ အသုံးပြုနိုင်ပါသည်။")
+        return
+
+    async with aiosqlite.connect(DB_NAME) as conn:
+        async with conn.execute("SELECT user_id, name, username, phone, business_name, joined_date FROM users") as cursor:
+            rows = await cursor.fetchall()
+
+    if not rows:
+        await update.message.reply_text("⚠️ ထုတ်ယူရန် User စာရင်း ဒေတာ မရှိသေးပါ။")
+        return
+
+    filename = f"users_export_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
+    
+    with open(filename, mode="w", newline="", encoding="utf-8-sig") as file:
+        writer = csv.writer(file)
+        writer.writerow(["User ID", "Name", "Username", "Phone", "Business Name", "Joined Date"])
+        writer.writerows(rows)
+
+    with open(filename, "rb") as doc:
+        await update.message.reply_document(document=doc)
+
+    if os.path.exists(filename):
+        os.remove(filename)
 
 
 # ==========================================================
@@ -1092,7 +1174,7 @@ async def export_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE) -> None:
     logging.error("Exception while handling an update:", exc_info=context.error)
 
-    tb_list = traceback.format_exception(None, context.error, context.error.traceback)
+    tb_list = traceback.format_exception(context.error)
     tb_string = "".join(tb_list)
 
     error_message = (
@@ -1112,7 +1194,7 @@ async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE) -> N
 
 
 # ==========================================================
-# PAGINATED MY ORDER STATUS SYSTEM
+# PAGINATED MY ORDER STATUS SYSTEM (WITH DETAIL & USER CANCEL)
 # ==========================================================
 
 async def get_order_status_page(user_id: int, page: int = 1, items_per_page: int = 5):
@@ -1133,6 +1215,8 @@ async def get_order_status_page(user_id: int, page: int = 1, items_per_page: int
             orders = await cursor.fetchall()
 
     text = f"📦 သင့်၏ အော်ဒါများ အခြေအနေ (My Order Status) [Page {page}/{total_pages}]\n\n"
+    inline_keyboard = []
+
     for o in orders:
         order_id, bot_type, status, updated_date = o
         text += (
@@ -1142,14 +1226,19 @@ async def get_order_status_page(user_id: int, page: int = 1, items_per_page: int
             f"🕒 နောက်ဆုံးပြင်ဆင်ချိန်: {updated_date}\n"
             f"-----------------------------------\n"
         )
+        if "Pending" in status:
+            inline_keyboard.append([InlineKeyboardButton(f"❌ Cancel {order_id}", callback_data=f"usercancel_{order_id}")])
 
-    buttons = []
+    nav_buttons = []
     if page > 1:
-        buttons.append(InlineKeyboardButton("⬅️ ယခင်", callback_data=f"orderpage_{page-1}"))
+        nav_buttons.append(InlineKeyboardButton("⬅️ ယခင်", callback_data=f"orderpage_{page-1}"))
     if page < total_pages:
-        buttons.append(InlineKeyboardButton("နောက်တစ်ခု ➡️", callback_data=f"orderpage_{page+1}"))
+        nav_buttons.append(InlineKeyboardButton("နောက်တစ်ခု ➡️", callback_data=f"orderpage_{page+1}"))
+    
+    if nav_buttons:
+        inline_keyboard.append(nav_buttons)
 
-    reply_markup = InlineKeyboardMarkup([buttons]) if buttons else None
+    reply_markup = InlineKeyboardMarkup(inline_keyboard) if inline_keyboard else None
     return text, reply_markup
 
 async def show_my_order_status(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -1163,14 +1252,34 @@ async def order_page_callback(update: Update, context: ContextTypes.DEFAULT_TYPE
     query = update.callback_query
     await query.answer()
 
-    page = int(query.data.split("_")[1])
+    data = query.data
     user_id = query.from_user.id
 
-    text, reply_markup = await get_order_status_page(user_id, page=page)
-    try:
-        await query.edit_message_text(text, reply_markup=reply_markup, parse_mode="Markdown")
-    except Exception as e:
-        logging.error(f"Error updating order status page: {e}")
+    if data.startswith("orderpage_"):
+        page = int(data.split("_")[1])
+        text, reply_markup = await get_order_status_page(user_id, page=page)
+        try:
+            await query.edit_message_text(text, reply_markup=reply_markup, parse_mode="Markdown")
+        except Exception as e:
+            logging.error(f"Error updating order status page: {e}")
+
+async def user_cancel_order_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    order_id = query.data.split("_")[1]
+    user_id = query.from_user.id
+
+    async with aiosqlite.connect(DB_NAME) as conn:
+        async with conn.execute("SELECT status FROM orders WHERE order_id = ? AND user_id = ?", (order_id, user_id)) as cursor:
+            row = await cursor.fetchone()
+        
+        if row and "Pending" in row[0]:
+            current_date = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            await conn.execute("UPDATE orders SET status = 'Cancelled 🔴', updated_date = ? WHERE order_id = ?", (current_date, order_id))
+            await conn.commit()
+            await query.edit_message_text(f"❌ Order ID: `{order_id}` ကို အောင်မြင်စွာ ပယ်ဖျက်လိုက်ပါပြီ။", parse_mode="Markdown")
+        else:
+            await query.edit_message_text("⚠️ ဤအော်ဒါကို ပယ်ဖျက်ခွင့် မရှိတော့ပါ (သို့မဟုတ် ပြီးဆုံးသွားပါပြီ)။")
 
 
 # ==========================================================
@@ -1236,11 +1345,14 @@ def main():
     app.add_handler(MessageHandler(filters.Regex("^📦 My Order Status$"), show_my_order_status))
     app.add_handler(MessageHandler(filters.Regex("^⚙️ My Profile$"), show_user_profile))
     app.add_handler(CallbackQueryHandler(order_page_callback, pattern="^orderpage_"))
+    app.add_handler(CallbackQueryHandler(user_cancel_order_callback, pattern="^usercancel_"))
 
     # Base Commands
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("stats", stats_command))
     app.add_handler(CommandHandler("export", export_command))
+    app.add_handler(CommandHandler("export_users", export_users_command))
+    app.add_handler(CommandHandler("completed", admin_complete_command))
 
     # Service Buttons
     app.add_handler(MessageHandler(filters.Regex("^🤖 ဝန်ဆောင်မှုများ$"), show_services))
@@ -1265,7 +1377,7 @@ def main():
     # FAQ & Reviews
     app.add_handler(MessageHandler(filters.Regex("^❓ FAQ$"), show_faq))
     app.add_handler(MessageHandler(filters.Regex("^⭐ Customer Review$"), show_reviews))
-    app.add_handler(MessageHandler(filters.Regex("⭐"), handle_review_input))
+    app.add_handler(MessageHandler(filters.Regex("^⭐{3,5}$"), handle_review_input))
 
     # Navigation
     app.add_handler(MessageHandler(filters.Regex("^🏠 ပင်မမီနူးသို့ ပြန်ရန်$"), back_to_main))
